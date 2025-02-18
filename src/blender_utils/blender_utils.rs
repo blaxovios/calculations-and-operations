@@ -62,25 +62,35 @@ fn perform_extraction(input_folder: &str, output_file: &str) -> io::Result<()> {
 
             // Read the EXR image
             let image = read_all_data_from_file(&path).unwrap();
-            let size = image.layer_data.inline_size();
-            let pixels = image.layer_data.channel("R").unwrap().pixels;
+            let layers = image.layer_data;
 
-            // Extract vertex data from the image
-            let vertices: Vec<Vertex> = pixels
-                .iter()
-                .enumerate()
-                .map(|(i, &brightness)| {
-                    let x = (i % size.width as usize) as f32;
-                    let y = (i / size.width as usize) as f32;
-                    Vertex {
-                        x,
-                        y,
-                        z: brightness, // Use the pixel value directly for the Z value
-                    }
-                })
-                .collect();
+            for layer in layers {
+                let size = layer.size;
+                let channels = layer.channel_data;
 
-            wave_data.add_frame(frame_number, vertices);
+                // Extract pixel data from the channels
+                let pixels: Vec<f32> = channels
+                    .list.iter()
+                    .flat_map(|channel| channel.sample_data.iter().map(|&sample| sample as f32))
+                    .collect();
+
+                // Extract vertex data from the pixels
+                let vertices: Vec<Vertex> = pixels
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &brightness)| {
+                        let x = (i % size.width() as usize) as f32;
+                        let y = (i / size.width() as usize) as f32;
+                        Vertex {
+                            x,
+                            y,
+                            z: brightness, // Use the pixel value directly for the Z value
+                        }
+                    })
+                    .collect();
+
+                wave_data.add_frame(frame_number, vertices);
+            }
         }
     }
 
